@@ -272,43 +272,55 @@ elif page == "🚀 新建项目":
 # ---------------------------------------------------------------
 elif page == "压力测试":
     st.header("🔎 AI 压力测试")
-    client_name = st.selectbox("选择客户", [d.name for d in (Path(__file__).parent.parent / "output").iterdir() if d.is_dir()])
-    engines = st.multiselect("选择 AI 引擎", ["deepseek", "chatgpt"], default=["deepseek"])
-    if st.button("开始压力测试"):
-        client_folder = Path(__file__).parent.parent / "output" / client_name
-        with st.spinner("正在以多角色发起攻击..."):
-            from wrapper import run_pressure_test
-            # Use user-selected engines
-            res = run_pressure_test(client_folder.name, str(client_folder), engines)
-            st.success(f"测试完成！报告已生成: {res}")
-            with open(res, "r") as f:
-                st.markdown(f.read())
+    output_root = Path(__file__).parent.parent / "output"
+    output_root.mkdir(parents=True, exist_ok=True)
+    client_list = [d.name for d in output_root.iterdir() if d.is_dir()]
+    if not client_list:
+        st.info("暂无客户数据，请先在【🚀 新建项目】创建项目。")
+    else:
+        client_name = st.selectbox("选择客户", client_list)
+        engines = st.multiselect("选择 AI 引擎", ["deepseek", "chatgpt"], default=["deepseek"])
+        if st.button("开始压力测试"):
+            client_folder = output_root / client_name
+            with st.spinner("正在以多角色发起攻击..."):
+                from wrapper import run_pressure_test
+                # Use user-selected engines
+                res = run_pressure_test(client_folder.name, str(client_folder), engines)
+                st.success(f"测试完成！报告已生成: {res}")
+                with open(res, "r") as f:
+                    st.markdown(f.read())
 
 # ---------------------------------------------------------------
 # 4️⃣ Comparison Report – before/after
 # ---------------------------------------------------------------
 elif page == "对比报告":
     st.header("📈 前后对比报告")
-    client_name = st.selectbox("选择客户", [d.name for d in (Path(__file__).parent.parent / "output").iterdir() if d.is_dir()], key="cmp_client")
-    client_folder = Path(__file__).parent.parent / "output" / client_name
-    json_files = [f.name for f in client_folder.iterdir() if f.is_file() and f.suffix == ".json"]
-    if not json_files:
-        st.warning("该客户暂无 JSON 测试文件。")
+    output_root = Path(__file__).parent.parent / "output"
+    output_root.mkdir(parents=True, exist_ok=True)
+    client_list = [d.name for d in output_root.iterdir() if d.is_dir()]
+    if not client_list:
+        st.info("暂无客户数据，请先在【🚀 新建项目】创建项目。")
     else:
-        before_file = st.selectbox("选择前测 JSON", json_files, key="before_file")
-        after_file = st.selectbox("选择后测 JSON", json_files, key="after_file")
-        if st.button("开始对比"):
-            if before_file == after_file:
-                st.error("请选择不同的前后文件进行对比。")
-            else:
-                p_before = client_folder / before_file
-                p_after = client_folder / after_file
-                with st.spinner("正在进行语义差异分析..."):
-                    from wrapper import generate_comparison_report
-                    res = generate_comparison_report(str(p_before), str(p_after), client_name)
-                    st.success("对比报告生成完成！")
-                    with open(res, "r") as f:
-                        st.markdown(f.read())
+        client_name = st.selectbox("选择客户", client_list, key="cmp_client")
+        client_folder = output_root / client_name
+        json_files = [f.name for f in client_folder.iterdir() if f.is_file() and f.suffix == ".json"]
+        if not json_files:
+            st.warning("该客户暂无 JSON 测试文件。")
+        else:
+            before_file = st.selectbox("选择前测 JSON", json_files, key="before_file")
+            after_file = st.selectbox("选择后测 JSON", json_files, key="after_file")
+            if st.button("开始对比"):
+                if before_file == after_file:
+                    st.error("请选择不同的前后文件进行对比。")
+                else:
+                    p_before = client_folder / before_file
+                    p_after = client_folder / after_file
+                    with st.spinner("正在进行语义差异分析..."):
+                        from wrapper import generate_comparison_report
+                        res = generate_comparison_report(str(p_before), str(p_after), client_name)
+                        st.success("对比报告生成完成！")
+                        with open(res, "r") as f:
+                            st.markdown(f.read())
 
 # ---------------------------------------------------------------
 # 5️⃣ Settings – show (admin only) env vars
