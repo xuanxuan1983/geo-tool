@@ -91,6 +91,7 @@ page = st.sidebar.radio("页面", ["仪表盘", "🚀 新建项目", "压力测�
 if page == "仪表盘":
     st.header("📊 仪表盘")
     output_root = Path(__file__).parent.parent / "output"
+    output_root.mkdir(parents=True, exist_ok=True)  # Create if not exists
     clients = [p.name for p in output_root.iterdir() if p.is_dir()]
     st.subheader("已生成的客户文件夹")
 
