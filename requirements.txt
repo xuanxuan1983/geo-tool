@@ -1,0 +1,25 @@
+# GEO Business Tool - Python Dependencies
+
+# Core
+openai>=1.0.0
+
+# Retry mechanism
+tenacity>=8.0.0
+
+# Data processing
+# (Python built-in: json, datetime, pathlib)
+
+# Web UI
+streamlit>=1.0.0
+python-dotenv
+
+# PPT generation
+python-pptx>=0.6.21
+Pillow>=9.0.0
+
+# Automation
+playwright>=1.30.0
+
+# Optional: For network visualization (uncomment if needed)
+# networkx>=2.6
+# matplotlib>=3.5

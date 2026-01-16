@@ -1,0 +1,35 @@
+{
+    "client_name": "示例品牌",
+    "business_type": "上游品牌",
+    "core_product": "重组胶原蛋白植入剂",
+    "hard_anchors": [
+        "注册证号：XXXXXXXXXX",
+        "核心技术：EDC/NHS 交联技术",
+        "成分参数：III型重组胶原蛋白",
+        "专利号：CNXXXXXXX"
+    ],
+    "competitors": [
+        {
+            "name": "竞品A",
+            "key_phrase": "玻尿酸"
+        },
+        {
+            "name": "竞品B",
+            "key_phrase": "动物源胶原蛋白"
+        },
+        {
+            "name": "竞品C",
+            "key_phrase": "自体脂肪"
+        }
+    ],
+    "existing_assets": [
+        "https://example.com",
+        "https://mp.weixin.qq.com/xxx"
+    ],
+    "goal": "获客",
+    "compliance_redlines": [
+        "不能出现100%有效",
+        "不能与药品做疗效对比",
+        "不能使用患者证言"
+    ]
+}

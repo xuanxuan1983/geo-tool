@@ -1,0 +1,17 @@
+{
+    "client_name": "测试品牌",
+    "business_type": "上游品牌",
+    "core_product": "产品A",
+    "hard_anchors": [
+        "锚点1"
+    ],
+    "competitors": [
+        {
+            "name": "竞品1",
+            "key_phrase": "关键"
+        }
+    ],
+    "existing_assets": [],
+    "goal": "测试",
+    "compliance_redlines": []
+}
