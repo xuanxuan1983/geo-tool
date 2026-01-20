@@ -9,6 +9,15 @@ tenacity>=8.0.0
 # Data processing
 # (Python built-in: json, datetime, pathlib)
 
+# Configuration
+PyYAML>=6.0
+
+# HTTP requests
+requests>=2.28.0
+
+# Platform integrations
+notion-client>=2.0.0
+
 # Web UI
 streamlit>=1.0.0
 python-dotenv
