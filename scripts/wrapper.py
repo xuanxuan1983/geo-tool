@@ -26,35 +26,68 @@ def _extract_keywords_and_questions(client_folder: str, client_name: str) -> Tup
     keywords = []
     questions = []
 
-    # 提取硬核实体词 - 找到整个section包含所有表格行
-    keyword_match = re.search(r'\*\*1\. 硬核实体词\*\*.*?\n\*\*2\.', content, re.DOTALL)
-    if keyword_match:
-        section_text = keyword_match.group(0)
-        # 匹配所有表格行中的关键词
-        # 格式1: | **1. 硬核实体词** | 1 | **关键词** | 说明 |
-        # 格式2: | | 2 | **关键词** | 说明 |
-        keyword_pattern = r'\|\s*(?:\*\*1\. 硬核实体词\*\*\s*)?\|?\s*\d+\s*\|\s*\*\*(.+?)\*\*'
-        for match in re.finditer(keyword_pattern, section_text):
-            keyword = match.group(1).strip()
-            # 排除标题行本身
-            if keyword != '1. 硬核实体词' and '硬核实体词' not in keyword:
-                # 清理括号内容
-                keyword = re.sub(r'\s*\([^)]*\)', '', keyword)
-                keyword = re.sub(r'\s*\[[^\]]*\]', '', keyword)
-                if keyword:
-                    keywords.append(keyword)
+    # 提取硬核实体词 - 支持两种格式
+    keywords = []
 
-    # 提取预测AI热门提问
-    question_section = re.search(r'\*\*4\. 预测 AI 热门提问\*\*.*?\n(.*?)(\n\*\*|$)', content, re.DOTALL)
-    if question_section:
-        lines = question_section.group(1).split('\n')
-        for line in lines:
-            # 匹配表格行: | | 1 | **问题内容？** | 说明 |
-            match = re.search(r'\|\s*\d+\s*\|\s*\*\*(.+?)\*\*', line)
-            if match:
-                question = match.group(1).strip()
-                if question:
-                    questions.append(question)
+    # 格式1: 两列表格，关键词用<br>分隔
+    # | **1. 硬核实体词** | 1. 关键词<br>2. 关键词<br>... |
+    keyword_cell_match = re.search(r'\|\s*\*\*1\.\s*硬核实体词\*\*\s*\|\s*(.+?)\s*\|', content)
+    if keyword_cell_match:
+        cell_content = keyword_cell_match.group(1)
+        # 提取所有编号的关键词
+        keyword_items = re.findall(r'\d+\.\s*([^<\n]+?)(?:<br>|\||$)', cell_content)
+        for kw in keyword_items:
+            kw = kw.strip()
+            # 清理括号内容
+            kw = re.sub(r'\s*\([^)]*\)', '', kw)
+            kw = re.sub(r'\s*\[[^\]]*\]', '', kw)
+            kw = re.sub(r'\s*（[^）]*）', '', kw)
+            if kw and len(kw) > 1:
+                keywords.append(kw)
+
+    # 格式2: 多行表格（备用）
+    if not keywords:
+        keyword_match = re.search(r'\*\*1\. 硬核实体词\*\*.*?\n\*\*2\.', content, re.DOTALL)
+        if keyword_match:
+            section_text = keyword_match.group(0)
+            keyword_pattern = r'\|\s*(?:\*\*1\. 硬核实体词\*\*\s*)?\|?\s*\d+\s*\|\s*\*\*(.+?)\*\*'
+            for match in re.finditer(keyword_pattern, section_text):
+                keyword = match.group(1).strip()
+                if keyword != '1. 硬核实体词' and '硬核实体词' not in keyword:
+                    keyword = re.sub(r'\s*\([^)]*\)', '', keyword)
+                    keyword = re.sub(r'\s*\[[^\]]*\]', '', keyword)
+                    if keyword:
+                        keywords.append(keyword)
+
+    # 提取预测AI热门提问 - 支持两种格式
+    questions = []
+
+    # 格式1: 两列表格，问题用<br>分隔
+    # | **4. 预测 AI 热门提问** | 1. "问题？"<br>2. "问题？"<br>... |
+    question_cell_match = re.search(r'\|\s*\*\*4\.\s*预测\s*AI\s*热门提问\*\*\s*\|\s*(.+?)\s*\|', content)
+    if question_cell_match:
+        cell_content = question_cell_match.group(1)
+        # 提取所有编号的问题
+        question_items = re.findall(r'\d+\.\s*["""]?([^""<\n]+?)["""]?(?:<br>|\||$)', cell_content)
+        for q in question_items:
+            q = q.strip()
+            # 确保问题不为空且有实际内容
+            if q and len(q) > 5:
+                # 移除可能的引号
+                q = q.strip('"').strip('"').strip('"')
+                questions.append(q)
+
+    # 格式2: 多行表格（备用）
+    if not questions:
+        question_section = re.search(r'\*\*4\. 预测 AI 热门提问\*\*.*?\n(.*?)(\n\*\*|$)', content, re.DOTALL)
+        if question_section:
+            lines = question_section.group(1).split('\n')
+            for line in lines:
+                match = re.search(r'\|\s*\d+\s*\|\s*\*\*(.+?)\*\*', line)
+                if match:
+                    question = match.group(1).strip()
+                    if question:
+                        questions.append(question)
 
     # 如果提取失败，使用默认值
     if not keywords:
@@ -126,6 +159,12 @@ def run_pressure_test(client_name: str, client_folder: str, engines: List[str]) 
         keywords = ["产品名称", "核心技术", "临床数据"]
         questions = ["这个产品和玻尿酸有什么区别？", "效果能维持多久？"]
 
+    # 保存问题列表到JSON文件
+    import json
+    questions_json_path = Path(client_folder) / "questions.json"
+    with open(questions_json_path, 'w', encoding='utf-8') as f:
+        json.dump(questions[:10], f, ensure_ascii=False, indent=2)
+
     script_path = Path(__file__).parent / "ai_pressure_test_multi.py"
     engines_arg = ",".join(engines)
 
@@ -134,19 +173,17 @@ def run_pressure_test(client_name: str, client_folder: str, engines: List[str]) 
         str(script_path),
         "--client",
         client_name,
-        "--output_dir",
-        client_folder,
+        "--output",
+        str(Path(client_folder) / "压力测试报告.md"),
         "--engines",
         engines_arg,
+        "--questions",
+        str(questions_json_path),
         "--keywords"
     ]
 
     # 添加关键词参数
     cmd.extend(keywords[:10])  # 最多10个关键词
-
-    # 添加问题参数
-    cmd.append("--questions")
-    cmd.extend(questions[:10])  # 最多10个问题
 
     _run_cmd(cmd, cwd=Path(__file__).parent)
     # The script writes a report named "压力测试报告.md" inside the client folder
