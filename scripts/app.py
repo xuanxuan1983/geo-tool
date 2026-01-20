@@ -227,22 +227,28 @@ elif page == "🚀 新建项目":
 
         # ===== 平台集成：创建项目 =====
         project_id = None
+        manager = None
         try:
             from platform_integration_manager import get_platform_manager
-            manager = get_platform_manager()
 
-            st.info(f"📤 正在同步到 {manager.get_current_platform()}...")
+            # 检查配置文件是否存在
+            config_path = Path(__file__).parent.parent / "config" / "platform_config.yaml"
+            if not config_path.exists():
+                st.warning("⚠️ 平台配置文件不存在，跳过Notion/飞书同步")
+            else:
+                manager = get_platform_manager()
+                st.info(f"📤 正在同步到 {manager.get_current_platform()}...")
 
-            # 创建项目记录
-            project_data = {
-                "client_name": c_name,
-                "industry": c_type,
-                "contact": "待补充",
-                "start_date": datetime.now().isoformat(),
-                "description": f"产品: {c_product}, 目标: {c_goal}"
-            }
-            project_id = manager.create_new_project(project_data)
-            st.success(f"✅ 项目已创建并同步到 {manager.get_current_platform()}！")
+                # 创建项目记录
+                project_data = {
+                    "client_name": c_name,
+                    "industry": c_type,
+                    "contact": "待补充",
+                    "start_date": datetime.now().isoformat(),
+                    "description": f"产品: {c_product}, 目标: {c_goal}"
+                }
+                project_id = manager.create_new_project(project_data)
+                st.success(f"✅ 项目已创建并同步到 {manager.get_current_platform()}！")
         except Exception as e:
             st.warning(f"⚠️ 平台同步失败: {e}（不影响流水线执行）")
 
@@ -256,7 +262,7 @@ elif page == "🚀 新建项目":
             run_pipeline(str(c_name), str(input_path.resolve()))
 
             # 标记阶段完成（只在完成后创建记录，避免重复）
-            if project_id:
+            if project_id and manager:
                 for stage in ["D", "B", "C", "A"]:
                     try:
                         manager.update_stage_progress(
@@ -272,7 +278,7 @@ elif page == "🚀 新建项目":
             generate_ppt(str(c_name), str(client_folder))
 
         # ===== 完成项目并生成文档 =====
-        if project_id:
+        if project_id and manager:
             try:
                 results = {
                     "d_matrix": str(client_folder / f"{c_name}_D_矩阵提取.md"),
