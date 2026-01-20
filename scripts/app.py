@@ -193,7 +193,7 @@ elif page == "🚀 新建项目":
         anchors = [line.strip() for line in c_anchors_text.split('\n') if line.strip()]
         assets = [line.strip() for line in c_assets_text.split('\n') if line.strip()]
         redlines = [line.strip() for line in c_redlines_text.split('\n') if line.strip()]
-        
+
         competitors = []
         for line in c_competitors_text.split('\n'):
             if '|' in line:
@@ -201,8 +201,9 @@ elif page == "🚀 新建项目":
                 competitors.append({"name": parts[0].strip(), "key_phrase": parts[1].strip()})
             elif line.strip():
                 competitors.append({"name": line.strip(), "key_phrase": "无"})
-        
+
         import json
+        from datetime import datetime
         data = {
             "client_name": c_name,
             "business_type": c_type,
@@ -217,21 +218,85 @@ elif page == "🚀 新建项目":
 
         st.write("---")
         st.info(f"正在保存配置并启动流水线 (Output: output/{c_name}) ...")
-        
+
         # Save to file
         client_folder = (Path(__file__).parent.parent / "output" / c_name).resolve()
         client_folder.mkdir(parents=True, exist_ok=True)
         input_path = client_folder / f"{c_name}.json"
         input_path.write_text(json_str, encoding='utf-8')
-        
+
+        # ===== 平台集成：创建项目 =====
+        project_id = None
+        try:
+            from platform_integration_manager import get_platform_manager
+            manager = get_platform_manager()
+
+            st.info(f"📤 正在同步到 {manager.get_current_platform()}...")
+
+            # 创建项目记录
+            project_data = {
+                "client_name": c_name,
+                "industry": c_type,
+                "contact": "待补充",
+                "start_date": datetime.now().isoformat(),
+                "description": f"产品: {c_product}, 目标: {c_goal}"
+            }
+            project_id = manager.create_new_project(project_data)
+            st.success(f"✅ 项目已创建并同步到 {manager.get_current_platform()}！")
+        except Exception as e:
+            st.warning(f"⚠️ 平台同步失败: {e}（不影响流水线执行）")
+
         # Run Pipeline
         with st.spinner("🚀 正在执行 D→B→C→A 全自动流水线 (耗时约 1-2 分钟)..."):
             from wrapper import run_pipeline
             from ppt_generator import generate_ppt
+            from platform_adapter import StageStatus
+
+            # 执行流水线（带进度同步）
+            for stage in ["D", "B", "C", "A"]:
+                if project_id:
+                    try:
+                        manager.update_stage_progress(
+                            project_id=project_id,
+                            stage=stage,
+                            status=StageStatus.RUNNING,
+                            duration_minutes=0
+                        )
+                    except:
+                        pass
+
             run_pipeline(str(c_name), str(input_path.resolve()))
+
+            # 标记阶段完成
+            if project_id:
+                for stage in ["D", "B", "C", "A"]:
+                    try:
+                        manager.update_stage_progress(
+                            project_id=project_id,
+                            stage=stage,
+                            status=StageStatus.COMPLETED,
+                            duration_minutes=2
+                        )
+                    except:
+                        pass
+
             # Generate PPT
             generate_ppt(str(c_name), str(client_folder))
-        
+
+        # ===== 完成项目并生成文档 =====
+        if project_id:
+            try:
+                results = {
+                    "d_matrix": str(client_folder / f"{c_name}_D_矩阵提取.md"),
+                    "b_conversion": str(client_folder / f"{c_name}_B_转化路径.md"),
+                    "c_quality": str(client_folder / f"{c_name}_C_质检暴改.md"),
+                    "a_proposal": str(client_folder / f"{c_name}_A_商业提案.md"),
+                }
+                doc_url = manager.complete_project(project_id, c_name, results)
+                st.success(f"📄 [查看交付文档]({doc_url})")
+            except Exception as e:
+                st.warning(f"⚠️ 文档生成失败: {e}")
+
         st.success("🎉 执行完成！结果如下：")
         
         # Show results directly (Copied from Dashboard logic)
@@ -330,7 +395,63 @@ elif page == "设置":
     if st.session_state.role != "admin":
         st.warning("仅管理员可查看设置")
     else:
-        st.subheader("环境变量（仅展示）")
+        # ===== 平台集成配置 =====
+        st.subheader("🌐 平台集成配置")
+
+        # 初始化session_state
+        if "platform_choice" not in st.session_state:
+            st.session_state.platform_choice = "feishu"
+
+        st.info("选择项目数据同步的目标平台。国内客户推荐使用飞书，国际客户推荐使用Notion。")
+
+        col_platform, col_status = st.columns([2, 1])
+        with col_platform:
+            platform = st.radio(
+                "默认平台",
+                options=["feishu", "notion"],
+                format_func=lambda x: "🚀 飞书 (Lark) - 推荐国内客户" if x == "feishu" else "📝 Notion - 推荐国际客户",
+                index=0 if st.session_state.platform_choice == "feishu" else 1,
+                key="platform_radio"
+            )
+            st.session_state.platform_choice = platform
+
+        with col_status:
+            st.metric("当前平台", "飞书 🚀" if platform == "feishu" else "Notion 📝")
+
+        # 保存配置
+        if st.button("💾 保存平台配置"):
+            import yaml
+            config_path = Path(__file__).parent.parent / "config" / "platform_config.yaml"
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+            config["default_platform"] = platform
+            with open(config_path, 'w') as f:
+                yaml.dump(config, f, allow_unicode=True)
+            st.success(f"✅ 已保存！默认平台设置为: {platform.upper()}")
+
+        st.divider()
+
+        # ===== 平台连接测试 =====
+        st.subheader("🔗 平台连接测试")
+        if st.button("测试平台连接"):
+            with st.spinner(f"正在测试 {platform.upper()} 连接..."):
+                try:
+                    from platform_integration_manager import PlatformIntegrationManager
+                    manager = PlatformIntegrationManager()
+                    current = manager.get_current_platform()
+                    st.success(f"✅ 平台连接成功！当前使用: {current}")
+
+                    # 显示项目统计
+                    projects = manager.get_all_projects()
+                    st.info(f"📊 已同步项目数: {len(projects)}")
+                except Exception as e:
+                    st.error(f"❌ 连接失败: {e}")
+                    st.warning("请检查配置文件中的 AppID/Secret/Token 是否正确配置")
+
+        st.divider()
+
+        # ===== 环境变量 =====
+        st.subheader("🔧 环境变量（仅展示）")
         from dotenv import dotenv_values
         env = dotenv_values()
         for k, v in env.items():

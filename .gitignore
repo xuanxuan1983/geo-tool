@@ -11,6 +11,9 @@ env/
 # Environment variables (contains secrets!)
 .env
 
+# Platform configuration (contains API keys!)
+config/platform_config.yaml
+
 # Output data
 output/
 

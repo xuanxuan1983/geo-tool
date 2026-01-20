@@ -1,0 +1,35 @@
+# GEO工具平台集成 - 新增依赖
+
+# ===== 平台集成核心依赖 =====
+notion-client>=2.2.1          # Notion API客户端
+pyyaml>=6.0.1                 # YAML配置文件解析
+requests>=2.31.0              # HTTP请求（飞书API）
+
+# ===== 现有依赖（保留） =====
+streamlit>=1.29.0
+python-dotenv>=1.0.0
+openai>=1.6.0
+anthropic>=0.7.0
+Pillow>=10.1.0
+python-pptx>=0.6.23
+
+# ===== 可选增强功能 =====
+# 如需邮件通知功能，取消注释：
+# smtplib  # Python标准库，无需安装
+# email     # Python标准库，无需安装
+
+# 如需异步执行优化，取消注释：
+# asyncio   # Python标准库，无需安装
+# aiohttp>=3.9.0
+
+# 如需数据可视化（后续模块），取消注释：
+# plotly>=5.18.0
+# pandas>=2.1.0
+# matplotlib>=3.8.0
+# seaborn>=0.13.0
+
+# 如需定时任务（后续模块），取消注释：
+# apscheduler>=3.10.4
+
+# 如需WebSocket实时推送（后续模块），取消注释：
+# websockets>=12.0
