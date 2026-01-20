@@ -86,7 +86,8 @@ class NotionProjectManager(ProjectManager):
 
         # 可选字段
         if stage_data.get("project_id"):
-            properties["项目ID"] = {"rich_text": [{"text": {"content": stage_data.get("project_id", "")}}]}
+            # 使用Relation关联到客户项目数据库
+            properties["项目ID"] = {"relation": [{"id": stage_data.get("project_id", "")}]}
 
         if stage_data.get("stage"):
             properties["执行阶段"] = {"select": {"name": stage_data.get("stage", "")}}
