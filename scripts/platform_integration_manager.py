@@ -25,11 +25,22 @@ class PlatformIntegrationManager:
         Args:
             config_path: 配置文件路径，默认为 config/platform_config.yaml
         """
-        if config_path is None:
-            config_path = Path(__file__).parent.parent / "config" / "platform_config.yaml"
+        # 优先从 Streamlit Secrets 读取配置
+        try:
+            import streamlit as st
+            if hasattr(st, 'secrets') and 'platform_config' in st.secrets:
+                print("📦 从 Streamlit Secrets 加载配置")
+                self.config = dict(st.secrets['platform_config'])
+            else:
+                raise KeyError("No secrets found")
+        except (ImportError, KeyError):
+            # 从文件读取配置
+            if config_path is None:
+                config_path = Path(__file__).parent.parent / "config" / "platform_config.yaml"
 
-        with open(config_path) as f:
-            self.config = yaml.safe_load(f)
+            print(f"📦 从文件加载配置: {config_path}")
+            with open(config_path) as f:
+                self.config = yaml.safe_load(f)
 
         # 获取默认平台
         platform_name = self.config.get("default_platform", "feishu")
