@@ -252,22 +252,10 @@ elif page == "🚀 新建项目":
             from ppt_generator import generate_ppt
             from platform_adapter import StageStatus
 
-            # 执行流水线（带进度同步）
-            for stage in ["D", "B", "C", "A"]:
-                if project_id:
-                    try:
-                        manager.update_stage_progress(
-                            project_id=project_id,
-                            stage=stage,
-                            status=StageStatus.RUNNING,
-                            duration_minutes=0
-                        )
-                    except:
-                        pass
-
+            # 执行流水线
             run_pipeline(str(c_name), str(input_path.resolve()))
 
-            # 标记阶段完成
+            # 标记阶段完成（只在完成后创建记录，避免重复）
             if project_id:
                 for stage in ["D", "B", "C", "A"]:
                     try:

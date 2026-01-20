@@ -32,23 +32,26 @@ class NotionProjectManager(ProjectManager):
         properties = {
             "客户名称": {
                 "title": [{"text": {"content": project_data.get("client_name", "")}}]
-            },
-            "行业类型": {
-                "select": {"name": project_data.get("industry", "其他")}
-            },
-            "项目状态": {
-                "select": {"name": project_data.get("status", ProjectStatus.PENDING.value)}
-            },
-            "开始日期": {
-                "date": {"start": project_data.get("start_date", datetime.now().isoformat())}
-            },
-            "描述": {
-                "rich_text": [{"text": {"content": project_data.get("description", "")}}]
             }
         }
 
+        # 可选字段 - 如果字段不存在就跳过
+        if project_data.get("industry"):
+            properties["行业类型"] = {"select": {"name": project_data.get("industry", "其他")}}
+
+        if project_data.get("status"):
+            properties["项目状态"] = {"select": {"name": project_data.get("status", ProjectStatus.PENDING.value)}}
+        else:
+            properties["项目状态"] = {"select": {"name": ProjectStatus.PENDING.value}}
+
+        if project_data.get("start_date"):
+            properties["开始日期"] = {"date": {"start": project_data.get("start_date", datetime.now().isoformat())}}
+
+        if project_data.get("description"):
+            properties["描述"] = {"rich_text": [{"text": {"content": project_data.get("description", "")}}]}
+
         response = self.client.pages.create(
-            parent={"database_id": self.projects_db_id},
+            parent={"database_id": self.clients_db_id},
             properties=properties
         )
 
@@ -76,27 +79,20 @@ class NotionProjectManager(ProjectManager):
     def add_stage_record(self, stage_data: Dict[str, Any]) -> str:
         """添加阶段执行记录"""
         properties = {
-            "项目ID": {
-                "relation": [{"id": stage_data.get("project_id", "")}]
-            },
-            "执行阶段": {
-                "select": {"name": stage_data.get("stage", "")}
-            },
-            "执行状态": {
-                "select": {"name": stage_data.get("status", StageStatus.PENDING.value)}
-            },
-            "开始时间": {
-                "date": {
-                    "start": datetime.fromtimestamp(stage_data.get("start_time", time.time())).isoformat()
-                }
-            },
-            "耗时(分钟)": {
-                "number": stage_data.get("duration_minutes", 0)
-            },
-            "质量评分": {
-                "number": stage_data.get("quality_score", 0)
+            "任务名称": {
+                "title": [{"text": {"content": f"{stage_data.get('stage', '')}阶段"}}]
             }
         }
+
+        # 可选字段
+        if stage_data.get("project_id"):
+            properties["项目ID"] = {"rich_text": [{"text": {"content": stage_data.get("project_id", "")}}]}
+
+        if stage_data.get("stage"):
+            properties["执行阶段"] = {"select": {"name": stage_data.get("stage", "")}}
+
+        if stage_data.get("status"):
+            properties["状态"] = {"select": {"name": stage_data.get("status", StageStatus.PENDING.value)}}
 
         if stage_data.get("end_time"):
             properties["完成时间"] = {

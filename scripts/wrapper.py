@@ -2,9 +2,76 @@
 
 import subprocess
 import os
+import re
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
+
+# -------------------------------------------------------------------
+# Helper: Extract keywords and questions from D matrix file
+# -------------------------------------------------------------------
+def _extract_keywords_and_questions(client_folder: str, client_name: str) -> Tuple[List[str], List[str]]:
+    """从D矩阵提取文件中提取关键词和问题
+
+    Returns:
+        (keywords, questions) 两个列表
+    """
+    d_matrix_file = Path(client_folder) / f"{client_name}_D_矩阵提取.md"
+
+    if not d_matrix_file.exists():
+        raise FileNotFoundError(f"D矩阵文件不存在: {d_matrix_file}")
+
+    content = d_matrix_file.read_text(encoding='utf-8')
+
+    keywords = []
+    questions = []
+
+    # 提取硬核实体词 - 找到整个section包含所有表格行
+    keyword_match = re.search(r'\*\*1\. 硬核实体词\*\*.*?\n\*\*2\.', content, re.DOTALL)
+    if keyword_match:
+        section_text = keyword_match.group(0)
+        # 匹配所有表格行中的关键词
+        # 格式1: | **1. 硬核实体词** | 1 | **关键词** | 说明 |
+        # 格式2: | | 2 | **关键词** | 说明 |
+        keyword_pattern = r'\|\s*(?:\*\*1\. 硬核实体词\*\*\s*)?\|?\s*\d+\s*\|\s*\*\*(.+?)\*\*'
+        for match in re.finditer(keyword_pattern, section_text):
+            keyword = match.group(1).strip()
+            # 排除标题行本身
+            if keyword != '1. 硬核实体词' and '硬核实体词' not in keyword:
+                # 清理括号内容
+                keyword = re.sub(r'\s*\([^)]*\)', '', keyword)
+                keyword = re.sub(r'\s*\[[^\]]*\]', '', keyword)
+                if keyword:
+                    keywords.append(keyword)
+
+    # 提取预测AI热门提问
+    question_section = re.search(r'\*\*4\. 预测 AI 热门提问\*\*.*?\n(.*?)(\n\*\*|$)', content, re.DOTALL)
+    if question_section:
+        lines = question_section.group(1).split('\n')
+        for line in lines:
+            # 匹配表格行: | | 1 | **问题内容？** | 说明 |
+            match = re.search(r'\|\s*\d+\s*\|\s*\*\*(.+?)\*\*', line)
+            if match:
+                question = match.group(1).strip()
+                if question:
+                    questions.append(question)
+
+    # 如果提取失败，使用默认值
+    if not keywords:
+        print("⚠️ 未能从D矩阵文件中提取关键词，使用默认值")
+        keywords = ["产品名称", "核心技术", "临床数据"]
+
+    if not questions:
+        print("⚠️ 未能从D矩阵文件中提取问题，使用默认值")
+        questions = [
+            "这个产品和玻尿酸有什么区别？",
+            "效果能维持多久？",
+            "有什么副作用吗？"
+        ]
+
+    print(f"✅ 提取到 {len(keywords)} 个关键词，{len(questions)} 个问题")
+    return keywords, questions
+
 
 # -------------------------------------------------------------------
 # Helper: run a command and capture output
@@ -50,8 +117,18 @@ def run_pressure_test(client_name: str, client_folder: str, engines: List[str]) 
     """Run pressure test for a client using selected engines.
     Returns the path to the generated markdown report.
     """
+    # 从D矩阵文件中提取关键词和问题
+    try:
+        keywords, questions = _extract_keywords_and_questions(client_folder, client_name)
+    except Exception as e:
+        print(f"⚠️  提取关键词和问题失败: {e}")
+        print("使用默认值继续...")
+        keywords = ["产品名称", "核心技术", "临床数据"]
+        questions = ["这个产品和玻尿酸有什么区别？", "效果能维持多久？"]
+
     script_path = Path(__file__).parent / "ai_pressure_test_multi.py"
     engines_arg = ",".join(engines)
+
     cmd = [
         "python3",
         str(script_path),
@@ -61,7 +138,16 @@ def run_pressure_test(client_name: str, client_folder: str, engines: List[str]) 
         client_folder,
         "--engines",
         engines_arg,
+        "--keywords"
     ]
+
+    # 添加关键词参数
+    cmd.extend(keywords[:10])  # 最多10个关键词
+
+    # 添加问题参数
+    cmd.append("--questions")
+    cmd.extend(questions[:10])  # 最多10个问题
+
     _run_cmd(cmd, cwd=Path(__file__).parent)
     # The script writes a report named "压力测试报告.md" inside the client folder
     report_path = Path(client_folder) / "压力测试报告.md"
